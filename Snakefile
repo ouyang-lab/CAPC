@@ -52,7 +52,7 @@ rule targets_zip:
 
 rule targets_prep:
     input:
-        expand("data/fastq/{sample}_R1.fastq.gz",
+        expand("data/fastq/{sample}_P1.fastq.gz",
                sample=SAMPLE_ID)
 
 
@@ -80,8 +80,8 @@ rule targets_hic:
 # ===================
 rule split_files:
     input:
-        P1 = "data/BLCAPC/{sample}_R1.fastq.gz",
-        P2 = "data/BLCAPC/{sample}_R2.fastq.gz"
+        P1 = "data/BLCAPC/{sample}_P1.fastq.gz",
+        P2 = "data/BLCAPC/{sample}_P2.fastq.gz"
     output: "data/splits/{sample}/split.out"
     params:
         prefix = "data/splits/{sample}/{sample}"
@@ -118,10 +118,10 @@ def get_all_splits(wildcards):
 rule combine_all:
     input: get_all_splits
     output:
-        P1 = "data/fastq/{sample}_R1.fastq.gz",
-        P2 = "data/fastq/{sample}_R2.fastq.gz",
-        F1 = "failed/{sample}_R1.fastq.gz",
-        F2 = "failed/{sample}_R2.fastq.gz",
+        P1 = "data/fastq/{sample}_P1.fastq.gz",
+        P2 = "data/fastq/{sample}_P2.fastq.gz",
+        F1 = "failed/{sample}_P1.fastq.gz",
+        F2 = "failed/{sample}_P2.fastq.gz",
         S1 = "data/stats/{sample}.txt"
     params:
         merge = "data/merge/{sample}",
