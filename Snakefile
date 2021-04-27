@@ -20,7 +20,7 @@ JUICER_TOOLS = "~/software/juicer/juicer_tools_0.7.0.jar"
 # Additional files
 # ===================
 BWA_INDEX = "/path/to/index"
-FRAGS_BED = "data/metadata/mboi_mm10_ordered_example.bed"
+FRAGS_BED = "data/metadata/mboi_mm10_ordered.bed.gz"
 
 # ===================
 # General Parameters
@@ -28,6 +28,7 @@ FRAGS_BED = "data/metadata/mboi_mm10_ordered_example.bed"
 SAMPLE_ID = ["example1", "example2"]
 GENOMIC_DISTANCE_TO_FILTER = 1000
 QUALITY = ["1", "30"]
+ASSAY = "BL-CAP-C"  # BL-CAP-C or CAP-C library
 
 # ===================
 # BL-CAP-C Parameters
@@ -36,6 +37,8 @@ FORWARD_ADAPTER = "ACGCGATATCTTATCTGACT"
 REVERSE_ADAPTER = "AGTCAGATAAGATATCGCGT"
 
 READ_LENGTH = 150
+
+SPLITS, = glob_wildcards("data/splits/{sample}.fastq")
 
 # ===================
 # Targets (BL-CAP-C)
@@ -152,8 +155,8 @@ rule remove_bridge_linker_cutadapt:
         merge = "data/SeqPrep/{sample}/merge_P1_{part}.fastq.gz",
         unmerge_P1 = "data/SeqPrep/{sample}/unmerge_P1_{part}.fastq.gz",
         unmerge_P2 = "data/SeqPrep/{sample}/unmerge_P2_{part}.fastq.gz",
-        forward = FORWARD_ADAPTER,
-        reverse = REVERSE_ADAPTER,
+        fwd = FORWARD_ADAPTER,
+        rev = REVERSE_ADAPTER,
         seqprep_dir = "data/SeqPrep/{sample}",
         cutadapt_dir = "data/cutadapt/{sample}",
         seqprep = SEQPREP,
@@ -169,46 +172,46 @@ rule remove_bridge_linker_cutadapt:
             -1 {params.unmerge_P1} \
             -2 {params.unmerge_P2}
         {params.cutadapt} -n 1 --overlap 10 \
-            -a forward={params.forward} \
-            -a reverse={params.reverse} \
+            -a forward={params.fwd} \
+            -a reverse={params.rev} \
             -o {output.merge_T1} \
             {params.merge}
         {params.cutadapt} -n 1 --overlap 10 \
-            -g forward={params.forward} \
-            -g reverse={params.reverse} \
+            -g forward={params.fwd} \
+            -g reverse={params.rev} \
             -o {output.merge_T2} \
             {params.merge}
         {params.cutadapt} -n 1 --overlap 10 \
-            -a forward={params.forward} \
-            -a reverse={params.reverse} \
+            -a forward={params.fwd} \
+            -a reverse={params.rev} \
             -o {output.unmerge_T1} \
             {params.unmerge_P1}
         {params.cutadapt} -n 1 --overlap 10 \
-            -g forward={params.forward} \
-            -g reverse={params.reverse} \
+            -g forward={params.fwd} \
+            -g reverse={params.rev} \
             -o {output.unmerge_T2} \
             {params.unmerge_P1}
         {params.cutadapt} -n 1 --overlap 10 \
-            -a forward={params.forward} \
-            -a reverse={params.reverse} \
+            -a forward={params.fwd} \
+            -a reverse={params.rev} \
             -o {output.unmerge_A1} \
             --mask-adapter \
             {params.unmerge_P1}
         {params.cutadapt} -n 1 --overlap 10 \
-            -g forward={params.forward} \
-            -g reverse={params.reverse} \
+            -g forward={params.fwd} \
+            -g reverse={params.rev} \
             -o {output.unmerge_G1} \
             --mask-adapter \
             {params.unmerge_P1}
         {params.cutadapt} -n 1 --overlap 10 \
-            -a forward={params.forward} \
-            -a reverse={params.reverse} \
+            -a forward={params.fwd} \
+            -a reverse={params.rev} \
             -o {output.unmerge_A2} \
             --mask-adapter \
             {params.unmerge_P2}
         {params.cutadapt} -n 1 --overlap 10 \
-            -g forward={params.forward} \
-            -g reverse={params.reverse} \
+            -g forward={params.fwd} \
+            -g reverse={params.rev} \
             -o {output.unmerge_G2} \
             --mask-adapter \
             {params.unmerge_P2}
@@ -325,7 +328,7 @@ rule extract_reads:
 rule reads_to_frags:
     input:
         txt = "data/contacts/{genome}/reads/{sample}.txt.gz",
-        frag = "data/metadata/mboi_mm10_ordered.bed"
+        frag = FRAGS_BED
     output:
         bed = "data/contacts/{genome}/frags/{sample}.txt.gz"
     threads: 4
@@ -336,7 +339,7 @@ rule reads_to_frags:
         """
         {params.bedtools} intersect \
             -a <(zcat {input.txt}) \
-            -b {input.frag} -wb \
+            -b <(zcat {input.frag}) -wb \
             | cut -f1,2,3,4,5,6,7,11 \
             | {params.sort} -k4,4 --parallel={threads} \
             | gzip -c > {output.bed}
@@ -352,11 +355,12 @@ rule frags_to_pre:
         orientation = "analysis/orientation/{sample}",
         txt = "analysis/orientation/{sample}/{sample}.txt",
         python = PYTHON,
-        sort = GNU_SORT
+        sort = GNU_SORT,
+        assay = ASSAY
     shell:
         """
         paste <(zcat {input.p1}) <(zcat {input.p2}) \
-            | {params.python} src/frags_to_pre.py medium \
+            | {params.python} src/frags_to_pre.py medium {params.assay} \
             | {params.sort} -k3,3d -k7,7d --parallel={threads} \
             | gzip -c > {output}
         mkdir -p {params.orientation}
